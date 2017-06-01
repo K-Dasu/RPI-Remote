@@ -31,5 +31,5 @@ void c_irq_handler ( void )
     RPI_GetArmTimer()->IRQClear = 1;
 
     //Do whatever it is you wanted to do..
-    uart_println("\n\nInterrupted");
+    // uart_println("\n\nInterrupted");
 }

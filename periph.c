@@ -10,6 +10,9 @@ extern void PUT16(unsigned int, unsigned int);
 extern void PUT8(unsigned int, unsigned int);
 extern unsigned int GET32(unsigned int);
 extern void dummy(unsigned int);
+extern void wakeup1(void);
+extern void wakeup2(void);
+extern void wakeup3(void);
 
 #define ARM_TIMER_LOD (PBASE + 0x0000B400)
 #define ARM_TIMER_VAL (PBASE + 0x0000B404)
@@ -224,9 +227,11 @@ void uart_dump_registers() {
   hexstring(r12);
 }
 
-unsigned int timer_tick(void) { return (GET32(ARM_TIMER_CNT)); }
 
 //------------------------------------------------------------------------
+/*                                Arm Timer Intialization                */
+//-------------------------------------------------------------------------
+unsigned int timer_tick(void) { return (GET32(ARM_TIMER_CNT)); }
 
 void timer_init(void) {
  /* Enable the timer interrupt IRQ */
@@ -250,3 +255,31 @@ void timer_init(void) {
  uart_println("\n\nTimer initialized");
 }
 //-------------------------------------------------------------------------
+/*                                  Accessing cores                     */
+//-------------------------------------------------------------------------
+
+void core_main0(){
+    // uart_println("\n\nCore 0 Executed");
+}
+
+void core_main1(){
+    // uart_println("\n\nCore 1 Executed");
+}
+
+void core_main2(){
+    // uart_println("\n\nCore 2 Executed");
+}
+
+void core_main3(){
+    // uart_println("\n\nCore 3 Excuted");
+}
+
+void initCores(){
+    // core 0 already awake (running this), just make it wake up the other cores
+    wakeup1();
+    wakeup2();
+    wakeup3();
+
+    // start actually running the code for this core
+    core_main0();
+}

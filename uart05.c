@@ -26,13 +26,14 @@ extern unsigned int timer_tick(void);
 
 //------------------------------------------------------------------------
 int notmain(void) {
-  uart_init();
   int ra;
+  uart_init();
   uart_println("\n\nProgram Start");
-
-
   uart_dump_registers();
+
   timer_init();
+
+  initCores(); 
 
   while (1) {
     int c = uart_recv();
