@@ -26,7 +26,7 @@ reset:
     MCR p15, 4, r0, c12, c0, 0
 
     mov sp,#0x8000
-    bl notmain
+    bl kernel_main
 hang: b hang
 
 .globl PUT32

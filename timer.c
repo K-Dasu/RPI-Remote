@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "timer.h"
+#include "periph.h"
 
 static rpi_arm_timer_t* rpiArmTimer = (rpi_arm_timer_t*)RPI_ARMTIMER_BASE;
 
@@ -12,3 +13,5 @@ void RPI_ArmTimerInit(void)
 {
 
 }
+
+

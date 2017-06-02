@@ -1,66 +1,17 @@
 //-------------------------------------------------------------------------
 //-------------------------------------------------------------------------
-#include "timer.h"
+#include "periph.h"
 #include "interrupts.h"
+#include "timer.h"
+#include "asm-funcs.h"
 
-#define PBASE 0x3F000000
-
-extern void PUT32(unsigned int, unsigned int);
-extern void PUT16(unsigned int, unsigned int);
-extern void PUT8(unsigned int, unsigned int);
-extern unsigned int GET32(unsigned int);
-extern void dummy(unsigned int);
-extern void wakeup1(void);
-extern void wakeup2(void);
-extern void wakeup3(void);
-
-#define ARM_TIMER_LOD (PBASE + 0x0000B400)
-#define ARM_TIMER_VAL (PBASE + 0x0000B404)
-#define ARM_TIMER_CTL (PBASE + 0x0000B408)
-#define ARM_TIMER_RIS (PBASE + 0x0000B410)
-#define ARM_TIMER_MIS (PBASE + 0x0000B414)
-#define ARM_TIMER_RLD (PBASE + 0x0000B418)
-#define ARM_TIMER_CNT (PBASE + 0x0000B420)
-#define ARM_TIMER_CLI (PBASE + 0x0000B40C)
-#define ARM_TIMER_DIV (PBASE + 0x0000B41C)
-
-
-#define GPFSEL1 (PBASE + 0x00200004)
-#define GPSET0 (PBASE + 0x0020001C)
-#define GPCLR0 (PBASE + 0x00200028)
-#define GPPUD (PBASE + 0x00200094)
-#define GPPUDCLK0 (PBASE + 0x00200098)
-#define GPFSEL3 0x3F20000C
-#define GPFSEL4 0x3F200010
-
-#define AUX_ENABLES (PBASE + 0x00215004)
-#define AUX_MU_IO_REG (PBASE + 0x00215040)
-#define AUX_MU_IER_REG (PBASE + 0x00215044)
-#define AUX_MU_IIR_REG (PBASE + 0x00215048)
-#define AUX_MU_LCR_REG (PBASE + 0x0021504C)
-#define AUX_MU_MCR_REG (PBASE + 0x00215050)
-#define AUX_MU_LSR_REG (PBASE + 0x00215054)
-#define AUX_MU_MSR_REG (PBASE + 0x00215058)
-#define AUX_MU_SCRATCH (PBASE + 0x0021505C)
-#define AUX_MU_CNTL_REG (PBASE + 0x00215060)
-#define AUX_MU_STAT_REG (PBASE + 0x00215064)
-#define AUX_MU_BAUD_REG (PBASE + 0x00215068)
-
-
-#define IRQ_BASIC (PBASE + 0x0000B200)
-#define IRQ_PEND1 (PBASE + 0x0000B204)
-#define IRQ_PEND2 (PBASE + 0x0000B208)
-#define IRQ_FIQ_CONTROL (PBASE + 0x0000B210)
-#define IRQ_ENABLE_BASIC (PBASE + 0x0000B218)
-#define IRQ_DISABLE_BASIC (PBASE + 0x0000B224)
 
 volatile unsigned int icount;
 
 // GPIO14  TXD0 and TXD1
 // GPIO15  RXD0 and RXD1
-//------------------------------------------------------------------------
 unsigned int uart_lcr(void) { return (GET32(AUX_MU_LSR_REG)); }
-//------------------------------------------------------------------------
+
 unsigned int uart_recv(void) {
   while (1) {
     if (GET32(AUX_MU_LSR_REG) & 0x01)
@@ -227,59 +178,27 @@ void uart_dump_registers() {
   hexstring(r12);
 }
 
-
 //------------------------------------------------------------------------
 /*                                Arm Timer Intialization                */
 //-------------------------------------------------------------------------
 unsigned int timer_tick(void) { return (GET32(ARM_TIMER_CNT)); }
 
 void timer_init(void) {
- /* Enable the timer interrupt IRQ */
- RPI_GetIrqController()->Enable_Basic_IRQs = RPI_BASIC_ARM_TIMER_IRQ;
+  /* Enable the timer interrupt IRQ */
+  RPI_GetIrqController()->Enable_Basic_IRQs = RPI_BASIC_ARM_TIMER_IRQ;
 
- /* Setup the system timer interrupt */
- /* Timer frequency = Clk/256 * 0x400 */
- RPI_GetArmTimer()->Load = 0x400;
+  /* Setup the system timer interrupt */
+  /* Timer frequency = Clk/256 * 0x400 */
+  RPI_GetArmTimer()->Load = 0x400;
 
- /* Setup the ARM Timer */
- RPI_GetArmTimer()->Control =
-        RPI_ARMTIMER_CTRL_23BIT |
-        RPI_ARMTIMER_CTRL_ENABLE |
-        RPI_ARMTIMER_CTRL_INT_ENABLE |
-        RPI_ARMTIMER_CTRL_PRESCALE_256;
+  /* Setup the ARM Timer */
+  RPI_GetArmTimer()->Control =
+      RPI_ARMTIMER_CTRL_23BIT | RPI_ARMTIMER_CTRL_ENABLE |
+      RPI_ARMTIMER_CTRL_INT_ENABLE | RPI_ARMTIMER_CTRL_PRESCALE_256;
 
- /* Enable interrupts! */
- enable_irq();
+  /* Enable interrupts! */
+  enable_irq();
 
- /*Finished Initializing Interrupts*/
- uart_println("\n\nTimer initialized");
-}
-//-------------------------------------------------------------------------
-/*                                  Accessing cores                     */
-//-------------------------------------------------------------------------
-
-void core_main0(){
-    // uart_println("\n\nCore 0 Executed");
-}
-
-void core_main1(){
-    // uart_println("\n\nCore 1 Executed");
-}
-
-void core_main2(){
-    // uart_println("\n\nCore 2 Executed");
-}
-
-void core_main3(){
-    // uart_println("\n\nCore 3 Excuted");
-}
-
-void initCores(){
-    // core 0 already awake (running this), just make it wake up the other cores
-    wakeup1();
-    wakeup2();
-    wakeup3();
-
-    // start actually running the code for this core
-    core_main0();
+  /*Finished Initializing Interrupts*/
+  uart_println("\n\nTimer initialized");
 }
