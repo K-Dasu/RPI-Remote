@@ -25,15 +25,15 @@ extern void timer_init(void);
 extern unsigned int timer_tick(void);
 
 //------------------------------------------------------------------------
-int notmain(void) {
+int main(void) {
   int ra;
   uart_init();
   uart_println("\n\nProgram Start");
   uart_dump_registers();
 
-  timer_init();
+  // timer_init();
 
-  initCores(); 
+  // initCores();
 
   while (1) {
     int c = uart_recv();

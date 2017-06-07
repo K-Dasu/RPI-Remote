@@ -1,120 +1,112 @@
+/*
+ * startup.S
+ *
+ * Circle - A C++ bare metal environment for Raspberry Pi
+ * Copyright (C) 2014-2017  R. Stange <rsta2@o2online.de>
+ *
+ * This file contains code taken from Linux:
+ *	safe_svcmode_maskall macro
+ *	defined in arch/arm/include/asm/assembler.h
+ *	Copyright (C) 1996-2000 Russell King
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#include "includes/sysconfig.h"
 
-;@-------------------------------------------------------------------------
-;@-------------------------------------------------------------------------
+/*
+ * Helper macro to enter SVC mode cleanly and mask interrupts. reg is
+ * a scratch register for the macro to overwrite.
+ *
+ * This macro is intended for forcing the CPU into SVC mode at boot time.
+ * you cannot return to the original mode.
+ */
+	.macro safe_svcmode_maskall reg:req
 
-.globl _start
+	mrs	\reg , cpsr
+	eor	\reg, \reg, #0x1A		/* test for HYP mode */
+	tst	\reg, #0x1F
+	bic	\reg , \reg , #0x1F		/* clear mode bits */
+	orr	\reg , \reg , #0xC0 | 0x13	/* mask IRQ/FIQ bits and set SVC mode */
+	bne	1f				/* branch if not HYP mode */
+	orr	\reg, \reg, #0x100		/* mask Abort bit */
+	adr	lr, 2f
+	msr	spsr_cxsf, \reg
+	.word	0xE12EF30E			/* msr ELR_hyp, lr */
+	.word	0xE160006E			/* eret */
+1:	msr	cpsr_c, \reg
+2:
+
+	.endm
+
+	.text
+
+	.globl	_start
 _start:
-    ldr pc,reset_handler
-    ldr pc,undefined_handler
-    ldr pc,swi_handler
-    ldr pc,prefetch_handler
-    ldr pc,data_handler
-    ldr pc,hyp_handler
-    ldr pc,irq_handler
-    ldr pc,fiq_handler
-reset_handler:      .word reset
-undefined_handler:  .word hang
-swi_handler:        .word hang
-prefetch_handler:   .word hang
-data_handler:       .word hang
-hyp_handler:        .word hang
-irq_handler:        .word irq
-fiq_handler:        .word hang
+#ifndef USE_RPI_STUB_AT
+	safe_svcmode_maskall r0
 
-reset:
-    mov r0,#0x8000
-    MCR p15, 4, r0, c12, c0, 0
+	mov	r0, #0
+	mcr	p15, 0, r0, c12, c0, 0		/* reset VBAR (if changed by u-boot) */
+#endif
+	cps	#0x11				/* set fiq mode */
+	ldr	sp, =MEM_FIQ_STACK
+	cps	#0x12				/* set irq mode */
+	ldr	sp, =MEM_IRQ_STACK
+	cps	#0x17				/* set abort mode */
+	ldr	sp, =MEM_ABORT_STACK
+	cps	#0x1B				/* set "undefined" mode */
+	ldr	sp, =MEM_ABORT_STACK
+	cps	#0x1F				/* set system mode */
+	ldr	sp, =MEM_KERNEL_STACK
+	b	sysinit
 
-    mov sp,#0x8000
-    bl kernel_main
-hang: b hang
+#if RASPPI != 1
 
-.globl PUT32
-PUT32:
-    str r1,[r0]
-    bx lr
+	.globl	_start_secondary
+_start_secondary:
+#ifdef ARM_ALLOW_MULTI_CORE
+	safe_svcmode_maskall r0
 
-.globl GET32
-GET32:
-    ldr r0,[r0]
-    bx lr
+	mrc	p15, 0, r0, c0, c0, 5		/* read MPIDR */
+	and	r0, r0, #CORES-1		/* get CPU ID */
 
-.globl dummy
-dummy:
-    bx lr
+	mov	r1, #EXCEPTION_STACK_SIZE	/* calculate exception stack offset for core */
+	mul	r1, r0, r1
+	cps	#0x11				/* set fiq mode */
+	ldr	r2, =MEM_FIQ_STACK
+	add	sp, r1, r2
+	cps	#0x12				/* set irq mode */
+	ldr	r2, =MEM_IRQ_STACK
+	add	sp, r1, r2
+	cps	#0x17				/* set abort mode */
+	ldr	r2, =MEM_ABORT_STACK
+	add	sp, r1, r2
+	cps	#0x1B				/* set "undefined" mode */
+	add	sp, r1, r2
 
-.globl GETPC
-GETPC:
-    mov r0,lr
-    bx lr
+	mov	r1, #KERNEL_STACK_SIZE		/* calculate kernel stack offset for core */
+	mul	r1, r0, r1
+	cps	#0x1F				/* set system mode */
+	ldr	r2, =MEM_KERNEL_STACK
+	add	sp, r1, r2
+	b	sysinit_secondary
+#else
+	dsb
+1:	wfi
+	b	1b
+#endif
 
-.globl GETCPSR
-GETCPSR:
-    mrs r0,cpsr
-    bx lr
+#endif
 
-    b core_main1
-
-.globl wakeup1
-wakeup1:                        // wake up core 1 (same process for 2 and 3 so those are uncommented)
-    ldr r0, =init_core1         // load the address of init_core1 into r0
-    mov r1, #0x40000000         // put the multicore mailbox base address into r1
-    str r0,[r1,#0x9C]           // put the address of init_core1 (in r0 currently) into the base mailbox address + the mailbox offset of core 1
-    bx lr                       // return
-
-init_core1:                     // this is where execution on core 1 starts
-    mov sp, #0x18000              // set up the stack, which C expects... arbitrary address in this case
-    b core_main1                // branch to the function we want this core to actually run
-
-.globl wakeup2
-wakeup2:                        // wake up core 2
-    ldr r0, =init_core2
-    mov r1, #0x40000000
-    str r0,[r1,#0xAC]
-    bx lr
-
-init_core2:
-    mov sp, #0x28000
-    b core_main2
-
-.globl wakeup3
-wakeup3:                        // wake up core 3
-    ldr r0, =init_core3
-    mov r1, #0x40000000
-    str r0,[r1,#0xBC]
-    bx lr
-
-init_core3:
-    mov sp, #0x38000
-    b core_main3
-
-.globl enable_irq
-enable_irq:
-    mrs r0,cpsr
-    bic r0,r0,#0x80
-    msr cpsr_c,r0
-    bx lr
-
-irq:
-    push {r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
-    bl c_irq_handler
-    pop  {r0,r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,lr}
-    ;@subs pc,lr,#4
-    eret
-
-
-;@-------------------------------------------------------------------------
-;@-------------------------------------------------------------------------
-
-
-;@-------------------------------------------------------------------------
-;@
-;@ Copyright (c) 2012 David Welch dwelch@dwelch.com
-;@
-;@ Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-;@
-;@ The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-;@
-;@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-;@
-;@-------------------------------------------------------------------------
+/* End */

@@ -1,9 +1,9 @@
 //-------------------------------------------------------------------------
 //-------------------------------------------------------------------------
-#include "periph.h"
-#include "interrupts.h"
-#include "timer.h"
-#include "asm-funcs.h"
+#include "includes/periph.h"
+#include "includes/interrupts.h"
+#include "includes/timer.h"
+#include "includes/asm-funcs.h"
 
 
 volatile unsigned int icount;
@@ -176,29 +176,4 @@ void uart_dump_registers() {
   register int r12 asm("r12");
   uart_print("r12: ");
   hexstring(r12);
-}
-
-//------------------------------------------------------------------------
-/*                                Arm Timer Intialization                */
-//-------------------------------------------------------------------------
-unsigned int timer_tick(void) { return (GET32(ARM_TIMER_CNT)); }
-
-void timer_init(void) {
-  /* Enable the timer interrupt IRQ */
-  RPI_GetIrqController()->Enable_Basic_IRQs = RPI_BASIC_ARM_TIMER_IRQ;
-
-  /* Setup the system timer interrupt */
-  /* Timer frequency = Clk/256 * 0x400 */
-  RPI_GetArmTimer()->Load = 0x400;
-
-  /* Setup the ARM Timer */
-  RPI_GetArmTimer()->Control =
-      RPI_ARMTIMER_CTRL_23BIT | RPI_ARMTIMER_CTRL_ENABLE |
-      RPI_ARMTIMER_CTRL_INT_ENABLE | RPI_ARMTIMER_CTRL_PRESCALE_256;
-
-  /* Enable interrupts! */
-  enable_irq();
-
-  /*Finished Initializing Interrupts*/
-  uart_println("\n\nTimer initialized");
 }

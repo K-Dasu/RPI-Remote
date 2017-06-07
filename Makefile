@@ -1,43 +1,43 @@
 #ARMGNU ?= arm-none-eabi
 #ARMGNU ?= arm-linux-gnueabi
-ARMGNU ?= ../gcc-arm-none-eabi/bin/arm-none-eabi
+PREFIX ?= ../gcc-arm-none-eabi/bin/arm-none-eabi-
+RASPPI	?= 3
 
+CC	= $(PREFIX)gcc
+CPP	= $(PREFIX)g++
+AS	= $(CC)
+LD	= $(PREFIX)ld
+AR	= $(PREFIX)ar
+
+ARCH	?= -march=armv8-a -mtune=cortex-a53 -mfpu=neon-fp-armv8 -mfloat-abi=hard
+TARGET	?= kernel7
+
+OBJS	= exceptionStub.o interrupts.o multicore.o periph.o timer.o sysinit.o uart05.o
+OPTIMIZE ?= -O2
+INCLUDE	+= -I includes
+
+AFLAGS	+= $(ARCH) -DRASPPI=$(RASPPI) $(INCLUDE)
 COPS = -Wall -O2 -nostdlib -nostartfiles -ffreestanding
 
-gcc : kernel.bin
+CPPFLAGS+= $(CFLAGS) -fno-exceptions -fno-rtti -std=c++14
 
-all : gcc clang
+%.o: %.S
+	@echo Building $<
+	$(AS) $(AFLAGS) -c -o $@ $<
 
-clean :
-	rm -f *.o
-	rm -f *.bin
-	rm -f *.hex
-	rm -f *.elf
-	rm -f *.list
-	rm -f *.img
-	rm -f *.bc
-	rm -f *.clang.s
+%.o: %.c
+	@echo Building $<
+	$(CC) $(COPS) -c -o $@ $<
 
-start.o : start.s
-	$(ARMGNU)-as start.s -o start.o
+%.o: %.cpp
+	@echo Building $<
+	$(CPP) $(CPPFLAGS) -c -o $@ $<
 
-kernel.o : kernel.c
-	$(ARMGNU)-gcc $(COPS) -c kernel.c -o kernel.o
+$(TARGET).img: $(OBJS) $(LIBS) start.o rpi-remote.ld
+	$(LD) -o $(TARGET).elf -Map $(TARGET).map -T rpi-remote.ld start.o $(OBJS) $(LIBS)
+	$(PREFIX)objdump -d $(TARGET).elf | $(PREFIX)c++filt > $(TARGET).lst
+	$(PREFIX)objcopy $(TARGET).elf -O binary $(TARGET).img
+	wc -c $(TARGET).img
 
-periph.o : periph.c
-	$(ARMGNU)-gcc $(COPS) -c periph.c -o periph.o
-
-interrupts.o : interrupts.c
-	$(ARMGNU)-gcc $(COPS) -c interrupts.c -o interrupts.o
-
-timer.o : timer.c
-	$(ARMGNU)-gcc $(COPS) -c timer.c -o timer.o
-
-multicore.o: multicore.c
-	$(ARMGNU)-gcc $(COPS) -c multicore.c -o multicore.o
-
-kernel.bin : memmap start.o periph.o timer.o interrupts.o kernel.o multicore.o
-	$(ARMGNU)-ld start.o periph.o timer.o interrupts.o kernel.o multicore.o -T memmap -o kernel.elf
-	$(ARMGNU)-objdump -D kernel.elf > kernel.list
-	$(ARMGNU)-objcopy kernel.elf -O ihex kernel.hex
-	$(ARMGNU)-objcopy kernel.elf -O binary kernel.bin
+clean:
+	rm -f *.o *.a *.elf *.lst *.img *.cir *.map *~

@@ -5,6 +5,6 @@ make
 sudo kextunload -b com.apple.driver.AppleSDXC
 sudo kextload -b com.apple.driver.AppleSDXC
 diskutil mount KDASUBOOT
-cp uart05.bin /Volumes/KDASUBOOT/kernel7.img
+cp kernel7.img /Volumes/KDASUBOOT/kernel7.img
 diskutil umount /Volumes/KDASUBOOT/
 echo "Copied and unmounted"
