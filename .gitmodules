@@ -1,0 +1,9 @@
+[submodule "submodules/circle"]
+	path = submodules/circle
+	url = https://github.com/rsta2/circle.git
+[submodule "submodules/raspbian/userland"]
+	path = submodules/raspbian/userland
+	url = https://github.com/raspberrypi/userland.git
+[submodule "submodules/newlib-cygwin"]
+	path = submodules/newlib-cygwin
+	url = git://sourceware.org/git/newlib-cygwin.git
