@@ -1,15 +1,27 @@
-# Makefile
-#
+PROJECT_PATH=$(shell pwd)
 
-CIRCLEHOME = ./circle
-NEWLIBHOME = ./newlib-cygwin
-NEWLIB = $(NEWLIBHOME)/build/arm-none-eabi/newlib/
-NEWLIB_HEADERS = $(NEWLIBHOME)/newlib/libc/include/
+CFLAGS_FOR_TARGET=-march=armv8-a -mtune=cortex-a53 -mfpu=neon-fp-armv8 -mfloat-abi=hard
 
-# the define that Rules.mk expects
-OTHER_INCLUDES = -I $(NEWLIB_HEADERS)
+CIRCLE_DIR=$(PROJECT_PATH)/submodules/circle
+NEWLIB_DIR=$(PROJECT_PATH)/submodules/newlib-cygwin
+NEWLIB_BUILD=$(NEWLIB_DIR)/build
 
-OBJS    = main.o kernel.o
-LIBS    = $(CIRCLEHOME)/lib/libcircle.a $(NEWLIB)/libc.a $(NEWLIB)/libm.a
+RASPPI=3
 
-include $(CIRCLEHOME)/Rules.mk
+build-newlib: 
+	export CFLAGS_FOR_TARGET='$(CFLAGS_FOR_TARGET)'
+	-mkdir $(NEWLIB_BUILD)
+	cd $(NEWLIB_BUILD) && $(NEWLIB_DIR)/configure --target arm-none-eabi --disable-newlib-supplied-syscalls --disable-multilib && make -j
+
+build-circle:
+	cp $(PROJECT_PATH)/submodules/Config.mk $(CIRCLE_DIR)
+	export RPI_REMOTE_PATH=$(PROJECT_PATH) && cd $(CIRCLE_DIR) && ./makeall
+	rm $(CIRCLE_DIR)/Config.mk
+
+clear-libs:
+	rm -rf $(NEWLIB_BUILD)
+	cd $(CIRCLE_DIR) && ./makeall clean
+
+build-libs: build-newlib build-circle
+
+clean-build-libs: clear-libs build-libs

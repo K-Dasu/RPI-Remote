@@ -1,9 +1,9 @@
 //
-// main.c
+// memio.h
 //
 // Circle - A C++ bare metal environment for Raspberry Pi
-// Copyright (C) 2014  R. Stange <rsta2@o2online.de>
-// 
+// Copyright (C) 2014-2016  R. Stange <rsta2@o2online.de>
+//
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
@@ -17,31 +17,27 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
-#include "kernel.h"
-#include <circle/startup.h>
+#ifndef _memio_h
+#define _memio_h
 
-int main (void)
+#include <types.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+static inline u32 read32 (uintptr nAddress)
 {
-	// cannot return here because some destructors used in CKernel are not implemented
-
-	CKernel Kernel;
-	if (!Kernel.Initialize ())
-	{
-		halt ();
-		return EXIT_HALT;
-	}
-	
-	TShutdownMode ShutdownMode = Kernel.Run ();
-
-	switch (ShutdownMode)
-	{
-	case ShutdownReboot:
-		reboot ();
-		return EXIT_REBOOT;
-
-	case ShutdownHalt:
-	default:
-		halt ();
-		return EXIT_HALT;
-	}
+	return *(u32 volatile *) nAddress;
 }
+
+static inline void write32 (uintptr nAddress, u32 nValue)
+{
+	*(u32 volatile *) nAddress = nValue;
+}
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
